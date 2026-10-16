@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub 云盘</title>
+<style>
+  :root {
+    --bg: #f3f6fb;
+    --card: #ffffff;
+    --border: #e4e9f2;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-soft: #eff4ff;
+    --hover: #f5f8ff;
+    --danger: #dc2626;
+    --shadow: 0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: #fff;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  header .logo { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  header .logo svg { width: 28px; height: 28px; fill: #fff; }
+  header .zip-chip {
+    font-size: 13px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25);
+    padding: 4px 12px; border-radius: 999px; user-select: none; max-width: 340px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  header .spacer { flex: 1; }
+  header input[type=search] {
+    flex: 0 1 260px; min-width: 160px;
+    padding: 8px 14px; border-radius: 8px; border: none; outline: none;
+    font-size: 14px; background: rgba(255,255,255,.92);
+  }
+  header button {
+    padding: 8px 14px; border: 1px solid rgba(255,255,255,.35); border-radius: 8px;
+    background: rgba(255,255,255,.14); color: #fff; font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  header button:hover { background: rgba(255,255,255,.28); }
+
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ---------- 面包屑 ---------- */
+  .breadcrumb {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+    padding: 12px 16px 6px; font-size: 14px;
+  }
+  .breadcrumb a { color: var(--primary); padding: 2px 6px; border-radius: 6px; }
+  .breadcrumb a:hover { background: var(--primary-soft); }
+  .breadcrumb .sep { color: #b6bfcc; }
+  .breadcrumb .current { color: var(--text); font-weight: 600; padding: 2px 6px; }
+  .breadcrumb .sep.ghost, .breadcrumb .ghost { color: #c3cbd8; }
+
+  /* ---------- 文件列表 ---------- */
+  .file-list {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; box-shadow: var(--shadow); margin-top: 6px;
+  }
+  .file-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .12s;
+  }
+  .file-row:last-child { border-bottom: none; }
+  .file-row:hover { background: var(--hover); }
+  .file-row .icon { flex: 0 0 28px; display: flex; }
+  .file-row .icon svg { width: 24px; height: 24px; }
+  .file-row .name {
+    flex: 1; min-width: 0; font-size: 14.5px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .file-row .name.is-folder { color: var(--primary); }
+  .file-row .meta { flex: 0 0 auto; font-size: 12.5px; color: var(--muted); display: flex; gap: 14px; }
+  .file-row .dl-btn {
+    flex: 0 0 auto; border: 1px solid var(--border); background: #fff; color: var(.muted);
+    color: var(--muted);
+    border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .file-row .dl-btn:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+  .file-row .dl-btn svg { width: 14px; height: 14px; }
+
+  /* ---------- 状态 ---------- */
+  .state-box { text-align: center; padding: 56px 20px; color: var(--muted); font-size: 14.5px; line-height: 1.9; }
+  .state-box .big { font-size: 46px; margin-bottom: 10px; }
+  .state-box b { color: var(--text); }
+  .state-box .danger { color: var(--danger); }
+  .spinner {
+    width: 34px; height: 34px; margin: 0 auto 14px;
+    border: 3px solid var(--border); border-top-color: var(--primary);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn-primary {
+    background: var(--primary); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 22px; font-size: 14.5px; cursor: pointer; margin: 10px 4px 0;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .hint-line { font-size: 12.5px; color: var(--muted); margin-top: 14px; line-height: 1.8; }
+  code.req {
+    background: #eef2f7; color: #1e3a8a; padding: 2px 8px; border-radius: 5px;
+    font-family: Consolas, Monaco, monospace; font-size: 13px;
+  }
+
+  /* ---------- 弹窗 ---------- */
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, .55);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 18px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 14px; width: 100%; max-width: 860px;
+    max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.3);
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head .title { flex: 1; font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal-head button {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text); white-space: nowrap;
+  }
+  .modal-head button:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+  .modal-head .close { color: var(--muted); }
+  .modal-body { padding: 18px; overflow: auto; flex: 1; min-height: 120px; }
+
+  .modal-body img { max-width: 100%; border-radius: 8px; display: block; margin: 0 auto; }
+  .modal-body video, .modal-body audio { width: 100%; }
+  .modal-body iframe { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .modal-body pre {
+    background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 10px;
+    overflow: auto; font-size: 13px; line-height: 1.6; max-height: 66vh;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+  }
+  .modal-body .md-body { line-height: 1.7; font-size: 14.5px; }
+  .modal-body .md-body h1, .modal-body .md-body h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; margin: 18px 0 10px; }
+  .modal-body .md-body h1 { font-size: 22px; } .modal-body .md-body h2 { font-size: 18px; }
+  .modal-body .md-body h3 { font-size: 16px; margin: 14px 0 8px; }
+  .modal-body .md-body p, .modal-body .md-body ul, .modal-body .md-body ol { margin: 8px 0; }
+  .modal-body .md-body ul, .modal-body .md-body ol { padding-left: 24px; }
+  .modal-body .md-body code { background: #eef2f7; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .modal-body .md-body pre code { background: none; padding: 0; }
+  .modal-body .md-body table { border-collapse: collapse; margin: 10px 0; }
+  .modal-body .md-body th, .modal-body .md-body td { border: 1px solid var(--border); padding: 6px 12px; }
+  .modal-body .md-body blockquote { border-left: 3px solid var(--primary); padding-left: 12px; color: var(--muted); margin: 10px 0; }
+
+  footer { text-align: center; font-size: 12.5px; color: var(--muted); padding: 20px; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 12px; }
+    header .zip-chip { display: none; }
+    .file-row .meta .time { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" opacity="0"/><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7 10h-2v-2h2v2zm0-4h-2V8h2v4z"/></svg>
+    GitHub 云盘
+  </div>
+  <div class="zip-chip" id="zipChip">未加载云盘空间.zip</div>
+  <div class="spacer"></div>
+  <input type="search" id="searchBox" placeholder="搜索当前目录…" style="display:none">
+  <button id="btnUp" title="返回上级" style="display:none">↑ 上级</button>
+  <button id="btnReload" title="重新读取 zip" style="display:none">🔄 刷新</button>
+</header>
+
+<main>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+  <div class="file-list" id="fileList"></div>
+</main>
+
+<footer>自动读取同目录 <b>云盘空间.zip</b> 并在浏览器内解压展示 · 所有文件仅在本地处理，不上传</footer>
+
+<!-- 预览弹窗 -->
+<div class="modal-mask" id="previewMask">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="title" id="previewTitle"></div>
+      <button id="btnDownload">⬇ 下载</button>
+      <button class="close" id="btnClosePreview">✕ 关闭</button>
+    </div>
+    <div class="modal-body" id="previewBody"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ================= 常量与状态 ================= */
+const ZIP_NAME = "云盘空间.zip";   // 必须与 index.html 位于同一目录
+const TEXT_LIMIT = 2 * 1024 * 1024;
+
+const state = {
+  zip: null,          // JSZip 实例
+  tree: null,         // 虚拟目录树
+  path: "",           // 当前路径
+  items: [],          // 当前目录条目
+  currentItem: null,  // 预览中的文件
+  previewURL: null,
+  fileCount: 0,
+};
+
+const $ = id => document.getElementById(id);
+
+/* ================= 工具 ================= */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtSize(b) {
+  if (b == null) return "";
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
+  return (b / 1073741824).toFixed(2) + " GB";
+}
+function fmtTime(d) {
+  if (!d) return "";
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function loadScript(srcs) { // 依次尝试多个 CDN
+  return srcs.reduce((p, src) => p.catch(() => new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error("脚本加载失败: " + src));
+    document.head.appendChild(s);
+  })), Promise.reject());
+}
+
+/* ================= 文件类型 ================= */
+const EXT_MAP = {
+  image: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "avif"],
+  video: ["mp4", "webm", "mkv", "mov", "avi", "m4v"],
+  audio: ["mp3", "wav", "flac", "ogg", "m4a", "aac"],
+  pdf: ["pdf"],
+  md: ["md", "markdown"],
+  code: ["js", "ts", "jsx", "tsx", "py", "java", "c", "cpp", "h", "cs", "go", "rs", "rb", "php", "swift", "kt",
+         "html", "css", "scss", "less", "json", "xml", "yml", "yaml", "toml", "ini", "sh", "bat", "ps1",
+         "sql", "lua", "vue", "svelte", "dart", "r", "m", "pl"],
+  text: ["txt", "log", "csv", "conf", "cfg", "env", "gitignore", "license", "readme"],
+  archive: ["zip", "rar", "7z", "tar", "gz", "bz2", "xz"],
+  doc: ["doc", "docx", "xls", "xlsx", "ppt", "pptx"],
+};
+const MIME = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp",
+  bmp: "image/bmp", svg: "image/svg+xml", ico: "image/x-icon", avif: "image/avif",
+  mp4: "video/mp4", webm: "video/webm", mkv: "video/x-matroska", mov: "video/quicktime",
+  avi: "video/x-msvideo", m4v: "video/x-m4v",
+  mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac", ogg: "audio/ogg", m4a: "audio/mp4", aac: "audio/aac",
+  pdf: "application/pdf",
+  html: "text/html", htm: "text/html", css: "text/css", js: "text/javascript", json: "application/json",
+  xml: "application/xml", txt: "text/plain", md: "text/markdown", csv: "text/csv", svg2: "image/svg+xml",
+  zip: "application/zip",
+};
+function extOf(name) {
+  const i = name.lastIndexOf(".");
+  return i < 0 ? "" : name.slice(i + 1).toLowerCase();
+}
+function kindOf(name) {
+  const e = extOf(name);
+  for (const k in EXT_MAP) if (EXT_MAP[k].includes(e)) return k;
+  return e ? "bin" : "text";
+}
+function mimeOf(name) { return MIME[extOf(name)] || "application/octet-stream"; }
+
+/* 图标 */
+const COLORS = { dir: "#2563eb", image: "#059669", video: "#7c3aed", audio: "#db2777", pdf: "#dc2626",
+                 md: "#0891b2", code: "#d97706", text: "#64748b", archive: "#a16207", doc: "#4f46e5", bin: "#94a3b8" };
+function iconSvg(kind) {
+  const c = COLORS[kind] || COLORS.bin;
+  if (kind === "dir")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
+  if (kind === "image")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`;
+  if (kind === "video")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`;
+  if (kind === "audio")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>`;
+  if (kind === "archive")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7 10h-2v-2h2v2zm0-4h-2V8h2v4z"/></svg>`;
+  if (kind === "pdf" || kind === "doc")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>`;
+  if (kind === "md")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM7 14l-2-3v3H3.5V9H5l2 3V9h1.5v5H7zm5-5v2h2v1.5h-2v2h-1.5V9H12zm8.5 5h-1.2l-1.3-2v2H16V9h1.5l1.5 2.3L20.5 9H22v5z"/></svg>`;
+  if (kind === "code")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>`;
+  if (kind === "text")
+    return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
+  return `<svg viewBox="0 0 24 24" fill="${c}"><path d="M13 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V9l-7-7zm-1 7V3.5L17.5 9H12z"/></svg>`;
+}
+
+/* ================= 加载并解析 ZIP ================= */
+function showLoading(msg) {
+  $("fileList").innerHTML = `<div class="state-box"><div class="spinner"></div>${esc(msg)}</div>`;
+}
+
+function showLoadError(detail) {
+  const isFile = location.protocol === "file:";
+  $("fileList").innerHTML = `
+    <div class="state-box">
+      <div class="big">📦</div>
+      <b>无法自动读取同目录的 <code class="req">${esc(ZIP_NAME)}</code></b>
+      <div class="danger">${esc(detail || "文件不存在或无法访问")}</div>
+      ${isFile ? `<div>你当前是<b>双击打开</b>（file:// 方式），浏览器安全策略禁止网页直接读取同目录文件。<br>
+        解决方法二选一：</div>` : `<div>请确认 <code class="req">${esc(ZIP_NAME)}</code> 与 index.html 放在<b>同一目录</b>。</div>`}
+      ${isFile ? `<div style="text-align:left;display:inline-block;margin-top:6px">
+        ① 用本地服务器打开（如在该目录运行 <code class="req">python -m http.server</code> 后访问 localhost）；<br>
+        ② 部署到 GitHub Pages / 任意静态托管，zip 与页面一起上传。</div>` : ""}
+      <div>
+        <button class="btn-primary" id="btnRetry" style="background:#64748b">🔄 重试</button>
+      </div>
+    </div>`;
+  $("btnRetry").onclick = () => init();
+}
+
+/* 把 JSZip 内容组装成目录树；若所有文件共有一个顶层文件夹则自动剥掉 */
+function buildTree(zip) {
+  const root = { dirs: new Map(), files: new Map() };
+  const entries = [];
+  zip.forEach((rel, entry) => { if (!entry.dir) entries.push(rel.split("/").filter(Boolean)); });
+  if (!entries.length) return { root, count: 0 };
+
+  // 剥离唯一公共顶层目录
+  let strip = 0;
+  if (entries.length) {
+    const top = entries[0][0];
+    if (top && entries.every(p => p[0] === top) && entries.some(p => p.length > 1)) strip = 1;
+  }
+
+  let count = 0;
+  zip.forEach((rel, entry) => {
+    if (entry.dir) return;
+    const parts = rel.split("/").filter(Boolean).slice(strip);
+    if (!parts.length) return;
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], { dirs: new Map(), files: new Map() });
+      node = node.dirs.get(parts[i]);
+    }
+    const size = entry._data && entry._data.uncompressedSize;
+    node.files.set(parts[parts.length - 1], {
+      name: parts[parts.length - 1], entry, size: size || 0, time: entry.date || null,
+    });
+    count++;
+  });
+  return { root, count };
+}
+
+async function loadZipBuffer(buffer, label) {
+  if (!window.JSZip) throw new Error("JSZip 库加载失败（请检查网络，或下载 jszip.min.js 放到本地引用）");
+  const zip = await JSZip.loadAsync(buffer);
+  const { root, count } = buildTree(zip);
+  if (!count) throw new Error("zip 内没有任何文件");
+  state.zip = zip;
+  state.tree = root;
+  state.fileCount = count;
+  state.path = "";
+  $("zipChip").textContent = `📦 ${label} · ${count} 个文件`;
+  $("searchBox").style.display = "";
+  $("btnReload").style.display = "";
+  openPath("");
+}
+
+async function init() {
+  $("searchBox").style.display = "none";
+  $("btnUp").style.display = "none";
+  $("btnReload").style.display = "none";
+  $("breadcrumb").innerHTML = "";
+  showLoading(`正在读取同目录的 ${ZIP_NAME} …`);
+  try {
+    const [jszipReady] = await Promise.all([
+      loadScript([
+        "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+        "https://unpkg.com/jszip@3.10.1/dist/jszip.min.js",
+      ]),
+      loadScript([ // Markdown 渲染，失败不阻塞
+        "https://cdn.jsdelivr.net/npm/marked@12/marked.min.js",
+        "https://unpkg.com/marked@12/marked.min.js",
+      ]).catch(() => {}),
+    ]);
+    const bust = location.protocol === "file:" ? "" : "?t=" + Date.now(); // 刷新时拿最新 zip
+    const res = await fetch(encodeURI(ZIP_NAME) + bust, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buffer = await res.arrayBuffer();
+    await loadZipBuffer(buffer, ZIP_NAME);
+  } catch (e) {
+    showLoadError(e.message);
+  }
+}
+
+/* ================= 目录浏览 ================= */
+function nodeAt(path) {
+  let node = state.tree;
+  for (const seg of path.split("/").filter(Boolean)) {
+    if (!node || !node.dirs.has(seg)) return null;
+    node = node.dirs.get(seg);
+  }
+  return node;
+}
+
+function openPath(path) {
+  state.path = path;
+  $("searchBox").value = "";
+  $("btnUp").style.display = path ? "" : "none";
+  renderBreadcrumb();
+  const node = nodeAt(path);
+  if (!node) { $("fileList").innerHTML = `<div class="state-box danger">目录不存在</div>`; return; }
+  const items = [];
+  for (const [, sub] of node.dirs) items.push({ name: subName(node, sub), isDir: true, size: null, time: null, ref: sub });
+  for (const [, f] of node.files) items.push({ name: f.name, isDir: false, size: f.size, time: f.time, ref: f.entry });
+  state.items = items;
+  renderList();
+}
+// Map 的 key 即文件夹名，直接用 key 更简单（这里兼容取 key）
+function subName(parentNode, sub) {
+  for (const [k, v] of parentNode.dirs) if (v === sub) return k;
+  return "?";
+}
+
+function renderBreadcrumb() {
+  const bc = $("breadcrumb");
+  const parts = state.path ? state.path.split("/") : [];
+  let html = `<a href="#" data-p="">🏠 云盘根目录</a>`;
+  parts.forEach((p, i) => {
+    html += `<span class="sep">/</span>`;
+    if (i === parts.length - 1) html += `<span class="current">${esc(p)}</span>`;
+    else html += `<a href="#" data-p="${esc(parts.slice(0, i + 1).join("/"))}">${esc(p)}</a>`;
+  });
+  bc.innerHTML = html;
+  bc.querySelectorAll("a").forEach(a => a.onclick = e => { e.preventDefault(); openPath(a.dataset.p); });
+}
+
+function renderList(filter = "") {
+  const box = $("fileList");
+  const kw = filter.trim().toLowerCase();
+  const items = state.items.filter(it => !kw || it.name.toLowerCase().includes(kw));
+  if (!items.length) {
+    box.innerHTML = `<div class="state-box"><div class="big">${kw ? "🔍" : "📂"}</div>
+      ${kw ? "没有匹配的文件" : "此文件夹为空"}</div>`;
+    return;
+  }
+  items.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name, "zh") : a.isDir ? -1 : 1));
+
+  box.innerHTML = items.map((it, idx) => {
+    const kind = it.isDir ? "dir" : kindOf(it.name);
+    const meta = it.isDir ? "" : `<span>${fmtSize(it.size)}</span><span class="time">${fmtTime(it.time)}</span>`;
+    return `<div class="file-row" data-idx="${idx}">
+      <div class="icon">${iconSvg(kind)}</div>
+      <div class="name ${it.isDir ? "is-folder" : ""}" title="${esc(it.name)}">${esc(it.name)}</div>
+      <div class="meta">${meta}</div>
+      ${it.isDir ? "" : `<button class="dl-btn" title="下载">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>下载</button>`}
+    </div>`;
+  }).join("");
+
+  box.querySelectorAll(".file-row").forEach(row => {
+    const item = items[Number(row.dataset.idx)];
+    row.onclick = e => {
+      if (e.target.closest(".dl-btn")) return;
+      if (item.isDir) openPath((state.path ? state.path + "/" : "") + item.name);
+      else openPreview(item);
+    };
+  });
+  box.querySelectorAll(".dl-btn").forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const item = items[Number(btn.closest(".file-row").dataset.idx)];
+      downloadItem(item);
+    };
+  });
+}
+
+/* ================= 下载 / 预览 ================= */
+async function itemBlob(item, asDownload) {
+  const buf = await item.ref.async("arraybuffer");
+  return new Blob([buf], { type: asDownload ? "application/octet-stream" : mimeOf(item.name) });
+}
+
+async function downloadItem(item) {
+  try {
+    const blob = await itemBlob(item, true);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = item.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (e) {
+    alert("下载失败：" + (e.message || e));
+  }
+}
+
+async function openPreview(item) {
+  state.currentItem = item;
+  $("previewTitle").textContent = item.name;
+  const body = $("previewBody");
+  body.innerHTML = `<div class="state-box"><div class="spinner"></div>正在解压预览…</div>`;
+  $("previewMask").classList.add("show");
+
+  const kind = kindOf(item.name);
+  const size = item.size || 0;
+  try {
+    if (["image", "video", "audio", "pdf"].includes(kind)) {
+      const blob = await itemBlob(item, false);
+      if (state.previewURL) URL.revokeObjectURL(state.previewURL);
+      state.previewURL = URL.createObjectURL(blob);
+      if (kind === "image") body.innerHTML = `<img src="${state.previewURL}" alt="${esc(item.name)}">`;
+      if (kind === "video") body.innerHTML = `<video src="${state.previewURL}" controls autoplay></video>`;
+      if (kind === "audio") body.innerHTML = `<audio src="${state.previewURL}" controls autoplay></audio>`;
+      if (kind === "pdf") body.innerHTML = `<iframe src="${state.previewURL}"></iframe>`;
+      return;
+    }
+    if (["md", "code", "text"].includes(kind)) {
+      if (size > TEXT_LIMIT) return showTooBig(item, size);
+      const text = await item.ref.async("string");
+      if (kind === "md" && window.marked) body.innerHTML = `<div class="md-body">${marked.parse(text)}</div>`;
+      else body.innerHTML = `<pre>${esc(text)}</pre>`;
+      return;
+    }
+    body.innerHTML = `<div class="state-box"><div class="big">📦</div>该类型不支持在线预览（${fmtSize(size)}）
+      <div><button class="btn-primary" data-dl="1">⬇ 下载文件</button></div></div>`;
+    body.querySelector("[data-dl]").onclick = () => downloadItem(item);
+  } catch (e) {
+    body.innerHTML = `<div class="state-box danger">预览失败：${esc(e.message || e)}</div>`;
+  }
+}
+
+function showTooBig(item, size) {
+  $("previewBody").innerHTML = `<div class="state-box"><div class="big">📄</div>文本过大（${fmtSize(size)}），不支持在线预览
+    <div><button class="btn-primary" data-dl="1">⬇ 下载文件</button></div></div>`;
+  $("previewBody").querySelector("[data-dl]").onclick = () => downloadItem(item);
+}
+
+function closePreview() {
+  $("previewMask").classList.remove("show");
+  $("previewBody").innerHTML = "";
+  if (state.previewURL) { URL.revokeObjectURL(state.previewURL); state.previewURL = null; }
+  state.currentItem = null;
+}
+
+/* ================= 事件 ================= */
+$("btnClosePreview").onclick = closePreview;
+$("previewMask").onclick = e => { if (e.target === $("previewMask")) closePreview(); };
+$("btnDownload").onclick = () => state.currentItem && downloadItem(state.currentItem);
+$("btnUp").onclick = () => {
+  const parts = state.path.split("/");
+  parts.pop();
+  openPath(parts.join("/"));
+};
+$("btnReload").onclick = () => init();
+$("searchBox").oninput = e => renderList(e.target.value);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePreview(); });
+
+/* ================= 启动：默认读取同目录 云盘空间.zip ================= */
+init();
+</script>
+</body>
+</html>
